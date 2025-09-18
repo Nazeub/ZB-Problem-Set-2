@@ -22,7 +22,7 @@ class Chip(NamedTuple):
 
 
 def generate_grid(rows: int, columns: int) -> Grid:
-    return [["-" for c in range(columns)] for r in range(rows)]
+    return [["-" for _ in range(columns)] for _ in range(rows)]
 
 
 def display_grid(grid: Grid) -> None:
@@ -31,15 +31,15 @@ def display_grid(grid: Grid) -> None:
 
 
 # --- Constraint Class ---
-class ChipConstraint(Constraint[Chip, list[GridLocation]]):
+class ChipConstraint(Constraint[Chip, tuple[list[GridLocation], tuple[int, int]]]):
     def __init__(self, chips: list[Chip]) -> None:
         super().__init__(chips)
         self.chips = chips
 
-    def satisfied(self, assignment: dict[Chip, list[GridLocation]]) -> bool:
-        # collect all occupied locations
+    def satisfied(self, assignment: dict[Chip, tuple[list[GridLocation], tuple[int, int]]]) -> bool:
         all_locs: set[GridLocation] = set()
-        for locations in assignment.values():
+        for placement in assignment.values():
+            locations = placement[0]
             for loc in locations:
                 if loc in all_locs:
                     return False  # overlap
@@ -48,19 +48,21 @@ class ChipConstraint(Constraint[Chip, list[GridLocation]]):
 
 
 # --- Helper: generate all possible placements for a chip ---
-def generate_chip_domain(chip: Chip, rows: int, cols: int) -> list[list[GridLocation]]:
-    placements: list[list[GridLocation]] = []
+def generate_chip_domain(chip: Chip, rows: int, cols: int) -> list[tuple[list[GridLocation], tuple[int, int]]]:
+    placements: list[tuple[list[GridLocation], tuple[int, int]]] = []
 
     # Try both orientations: (width, height) and (height, width)
     for (w, h) in [(chip.width, chip.height), (chip.height, chip.width)]:
+        # Only add unique placements if w==h (square), to avoid duplicates
+        if chip.width == chip.height and (w, h) != (chip.width, chip.height):
+            continue
         for row in range(rows - h + 1):
             for col in range(cols - w + 1):
                 locs: list[GridLocation] = []
                 for r in range(row, row + h):
                     for c in range(col, col + w):
                         locs.append(GridLocation(r, c))
-                placements.append(locs)
-
+                placements.append((locs, (w, h)))
     return placements
 
 
@@ -68,12 +70,12 @@ def solution(chips: list[Chip], grid: Grid) -> Grid | None:
     rows, cols = len(grid), len(grid[0])
 
     # Build domains
-    domains: dict[Chip, list[list[GridLocation]]] = {}
+    domains: dict[Chip, list[tuple[list[GridLocation], tuple[int, int]]]] = {}
     for chip in chips:
         domains[chip] = generate_chip_domain(chip, rows, cols)
 
     # Create CSP
-    csp: CSP[Chip, list[GridLocation]] = CSP(chips, domains)
+    csp: CSP[Chip, tuple[list[GridLocation], tuple[int, int]]] = CSP(chips, domains)
     csp.add_constraint(ChipConstraint(chips))
 
     # Solve
@@ -82,7 +84,8 @@ def solution(chips: list[Chip], grid: Grid) -> Grid | None:
         return None
 
     # Fill in grid with solution
-    for chip, locations in result.items():
+    for chip, placement in result.items():
+        locations = placement[0]
         for loc in locations:
             grid[loc.row][loc.column] = chip.symbol
 
