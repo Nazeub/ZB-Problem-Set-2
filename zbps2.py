@@ -1,36 +1,29 @@
 # ps2.py
 # Layout a Circuit Board using a CSP
 # Starter Code by David Kopec
-# Completed by: Zander Bueno
+# Completed by: [your name here]
 from __future__ import annotations
 from csp import CSP, Constraint
 from typing import NamedTuple
 
-
 Grid = list[list[str]]  # type alias for grids
-
 
 class GridLocation(NamedTuple):
     row: int
     column: int
-
 
 class Chip(NamedTuple):
     width: int
     height: int
     symbol: str
 
-
 def generate_grid(rows: int, columns: int) -> Grid:
     return [["-" for _ in range(columns)] for _ in range(rows)]
-
 
 def display_grid(grid: Grid) -> None:
     for row in grid:
         print("".join(row))
 
-
-# --- Constraint Class ---
 class ChipConstraint(Constraint[Chip, tuple[list[GridLocation], tuple[int, int]]]):
     def __init__(self, chips: list[Chip]) -> None:
         super().__init__(chips)
@@ -46,8 +39,6 @@ class ChipConstraint(Constraint[Chip, tuple[list[GridLocation], tuple[int, int]]
                 all_locs.add(loc)
         return True
 
-
-# --- Helper: generate all possible placements for a chip ---
 def generate_chip_domain(chip: Chip, rows: int, cols: int) -> list[tuple[list[GridLocation], tuple[int, int]]]:
     placements: list[tuple[list[GridLocation], tuple[int, int]]] = []
 
@@ -64,7 +55,6 @@ def generate_chip_domain(chip: Chip, rows: int, cols: int) -> list[tuple[list[Gr
                         locs.append(GridLocation(r, c))
                 placements.append((locs, (w, h)))
     return placements
-
 
 def solution(chips: list[Chip], grid: Grid) -> Grid | None:
     rows, cols = len(grid), len(grid[0])
@@ -90,7 +80,6 @@ def solution(chips: list[Chip], grid: Grid) -> Grid | None:
             grid[loc.row][loc.column] = chip.symbol
 
     return grid
-
 
 if __name__ == "__main__":
     easy_grid = generate_grid(10, 10)
