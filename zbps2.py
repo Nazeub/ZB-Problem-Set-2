@@ -22,7 +22,7 @@ class Chip(NamedTuple):
 
 
 def generate_grid(rows: int, columns: int) -> Grid:
-    return [["-" for c in range(columns)] for r in range(rows)]
+    return [["-" for _ in range(columns)] for _ in range(rows)]
 
 
 def display_grid(grid: Grid) -> None:
@@ -34,16 +34,14 @@ def display_grid(grid: Grid) -> None:
 class ChipConstraint(Constraint[Chip, list[GridLocation]]):
     def __init__(self, chips: list[Chip]) -> None:
         super().__init__(chips)
-        self.chips = chips
 
     def satisfied(self, assignment: dict[Chip, list[GridLocation]]) -> bool:
-        # collect all occupied locations
-        all_locs: set[GridLocation] = set()
-        for locations in assignment.values():
-            for loc in locations:
-                if loc in all_locs:
+        seen: set[GridLocation] = set()
+        for locs in assignment.values():
+            for loc in locs:
+                if loc in seen:
                     return False  # overlap
-                all_locs.add(loc)
+                seen.add(loc)
         return True
 
 
@@ -51,14 +49,13 @@ class ChipConstraint(Constraint[Chip, list[GridLocation]]):
 def generate_chip_domain(chip: Chip, rows: int, cols: int) -> list[list[GridLocation]]:
     placements: list[list[GridLocation]] = []
 
-    # Try both orientations: (width, height) and (height, width)
-    for (w, h) in [(chip.width, chip.height), (chip.height, chip.width)]:
+    orientations = {(chip.width, chip.height), (chip.height, chip.width)}  # avoid duplicates
+    for (w, h) in orientations:
+        if w > cols or h > rows:
+            continue
         for row in range(rows - h + 1):
             for col in range(cols - w + 1):
-                locs: list[GridLocation] = []
-                for r in range(row, row + h):
-                    for c in range(col, col + w):
-                        locs.append(GridLocation(r, c))
+                locs = [GridLocation(r, c) for r in range(row, row + h) for c in range(col, col + w)]
                 placements.append(locs)
 
     return placements
@@ -72,6 +69,10 @@ def solution(chips: list[Chip], grid: Grid) -> Grid | None:
     for chip in chips:
         domains[chip] = generate_chip_domain(chip, rows, cols)
 
+    # If any chip has no valid placements, early return
+    if any(len(domain) == 0 for domain in domains.values()):
+        return None
+
     # Create CSP
     csp: CSP[Chip, list[GridLocation]] = CSP(chips, domains)
     csp.add_constraint(ChipConstraint(chips))
@@ -81,12 +82,13 @@ def solution(chips: list[Chip], grid: Grid) -> Grid | None:
     if result is None:
         return None
 
-    # Fill in grid with solution
+    # Copy the grid and fill in chips
+    final_grid = [row[:] for row in grid]
     for chip, locations in result.items():
         for loc in locations:
-            grid[loc.row][loc.column] = chip.symbol
+            final_grid[loc.row][loc.column] = chip.symbol
 
-    return grid
+    return final_grid
 
 
 if __name__ == "__main__":
