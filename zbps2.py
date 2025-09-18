@@ -1,10 +1,10 @@
 # ps2.py
 # Layout a Circuit Board using a CSP
 # Starter Code by David Kopec
-# Completed by: [your name here]
+# Completed by: [Your Name] (Cite sources below)
 from __future__ import annotations
 from csp import CSP, Constraint
-from typing import NamedTuple
+from typing import NamedTuple, Tuple, Dict, List, Optional
 
 Grid = list[list[str]]  # type alias for grids
 
@@ -18,68 +18,77 @@ class Chip(NamedTuple):
     symbol: str
 
 def generate_grid(rows: int, columns: int) -> Grid:
-    return [["-" for _ in range(columns)] for _ in range(rows)]
+    # initialize grid with blank
+    return [["-" for c in range(columns)] for r in range(rows)]
 
 def display_grid(grid: Grid) -> None:
     for row in grid:
         print("".join(row))
 
-class ChipConstraint(Constraint[Chip, tuple[list[GridLocation], tuple[int, int]]]):
-    def __init__(self, chips: list[Chip]) -> None:
-        super().__init__(chips)
-        self.chips = chips
-
-    def satisfied(self, assignment: dict[Chip, tuple[list[GridLocation], tuple[int, int]]]) -> bool:
-        all_locs: set[GridLocation] = set()
-        for placement in assignment.values():
-            locations = placement[0]
-            for loc in locations:
-                if loc in all_locs:
-                    return False  # overlap
-                all_locs.add(loc)
-        return True
-
-def generate_chip_domain(chip: Chip, rows: int, cols: int) -> list[tuple[list[GridLocation], tuple[int, int]]]:
-    placements: list[tuple[list[GridLocation], tuple[int, int]]] = []
-
-    # Try both orientations: (width, height) and (height, width)
-    for (w, h) in [(chip.width, chip.height), (chip.height, chip.width)]:
-        # Only add unique placements if w==h (square), to avoid duplicates
-        if chip.width == chip.height and (w, h) != (chip.width, chip.height):
-            continue
-        for row in range(rows - h + 1):
-            for col in range(cols - w + 1):
-                locs: list[GridLocation] = []
-                for r in range(row, row + h):
-                    for c in range(col, col + w):
-                        locs.append(GridLocation(r, c))
-                placements.append((locs, (w, h)))
+def get_possible_placements(chip: Chip, grid: Grid) -> List[Tuple[int, int, int, int]]:
+    """Generate all possible placements for this chip on the grid, including rotations.
+    Each placement is (row, col, width, height), representing the top-left corner and orientation."""
+    placements = []
+    rows, cols = len(grid), len(grid[0])
+    for w, h in [(chip.width, chip.height), (chip.height, chip.width)] if chip.width != chip.height else [(chip.width, chip.height)]:
+        for r in range(rows - h + 1):
+            for c in range(cols - w + 1):
+                placements.append((r, c, w, h))
     return placements
 
+def rectangles_overlap(a: Tuple[int, int, int, int], b: Tuple[int, int, int, int]) -> bool:
+    """Check if two rectangles overlap. Rectangle: (row, col, width, height)"""
+    ar, ac, aw, ah = a
+    br, bc, bw, bh = b
+    # If one rectangle is to the left/right/top/bottom of the other, they don't overlap
+    if ac + aw <= bc or bc + bw <= ac:
+        return False
+    if ar + ah <= br or br + bh <= ar:
+        return False
+    return True
+
+class ChipPlacementConstraint(Constraint[Chip, Tuple[int, int, int, int]]):
+    """Constraint that ensures no chips overlap."""
+    def __init__(self, chips: List[Chip]):
+        super().__init__(chips)
+
+    def satisfied(self, assignment: Dict[Chip, Tuple[int, int, int, int]]) -> bool:
+        # For every pair of chips with assigned placements, check they don't overlap
+        items = list(assignment.items())
+        for i in range(len(items)):
+            chip_a, place_a = items[i]
+            for j in range(i+1, len(items)):
+                chip_b, place_b = items[j]
+                if rectangles_overlap(place_a, place_b):
+                    return False
+        return True
+
 def solution(chips: list[Chip], grid: Grid) -> Grid | None:
-    rows, cols = len(grid), len(grid[0])
-
-    # Build domains
-    domains: dict[Chip, list[tuple[list[GridLocation], tuple[int, int]]]] = {}
+    """Find a way to fit all of the chips onto the board and return a filled-in grid. If the chips can't fit, return None."""
+    # Generate domains for each chip: all possible placements (with rotation)
+    domains: Dict[Chip, List[Tuple[int, int, int, int]]] = {}
     for chip in chips:
-        domains[chip] = generate_chip_domain(chip, rows, cols)
+        domains[chip] = get_possible_placements(chip, grid)
 
-    # Create CSP
-    csp: CSP[Chip, tuple[list[GridLocation], tuple[int, int]]] = CSP(chips, domains)
-    csp.add_constraint(ChipConstraint(chips))
+    # Setup CSP
+    csp = CSP(chips, domains)
+    csp.add_constraint(ChipPlacementConstraint(chips))
 
     # Solve
     result = csp.backtracking_search()
     if result is None:
         return None
 
-    # Fill in grid with solution
-    for chip, placement in result.items():
-        locations = placement[0]
-        for loc in locations:
-            grid[loc.row][loc.column] = chip.symbol
+    # Fill grid
+    filled_grid = [row[:] for row in grid]  # copy
+    for chip, (r, c, w, h) in result.items():
+        for dr in range(h):
+            for dc in range(w):
+                filled_grid[r + dr][c + dc] = chip.symbol
+    return filled_grid
 
-    return grid
+# Cite sources:
+# - Inspired by word search code from Classic Computer Science Problems in Python, Chapter 3
 
 if __name__ == "__main__":
     easy_grid = generate_grid(10, 10)
