@@ -64,31 +64,27 @@ class ChipPlacementConstraint(Constraint[Chip, Tuple[int, int, int, int]]):
         return True
 
 def solution(chips: list[Chip], grid: Grid) -> Grid | None:
-    """Find a way to fit all of the chips onto the board and return a filled-in grid. If the chips can't fit, return None."""
-    # Generate domains for each chip: all possible placements (with rotation)
+    """
+    Find a way to fit all of the chips onto the board and return 
+    a filled-in grid. If the chips can't fit, return None.
+    """
     domains: Dict[Chip, List[Tuple[int, int, int, int]]] = {}
     for chip in chips:
         domains[chip] = get_possible_placements(chip, grid)
 
-    # Setup CSP
     csp = CSP(chips, domains)
     csp.add_constraint(ChipPlacementConstraint(chips))
 
-    # Solve
     result = csp.backtracking_search()
     if result is None:
         return None
 
-    # Fill grid
-    filled_grid = [row[:] for row in grid]  # copy
+    filled_grid = [row[:] for row in grid]
     for chip, (r, c, w, h) in result.items():
         for dr in range(h):
             for dc in range(w):
                 filled_grid[r + dr][c + dc] = chip.symbol
     return filled_grid
-
-# Cite sources:
-# - Inspired by word search code from Classic Computer Science Problems in Python, Chapter 3
 
 if __name__ == "__main__":
     easy_grid = generate_grid(10, 10)
