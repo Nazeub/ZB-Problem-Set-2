@@ -89,3 +89,12 @@ def solution(chips: list[Chip], grid: Grid) -> Grid | None:
 
 # Cite sources:
 # - Inspired by word search code from Classic Computer Science Problems in Python, Chapter 3
+
+if __name__ == "__main__":
+    easy_grid = generate_grid(10, 10)
+    easy_chips = [Chip(5, 5, "*"), Chip(4, 4, "#"), Chip(2, 2, "@")]
+    sol = solution(easy_chips, easy_grid)
+    if sol is None:
+        print("No solution found!")
+    else:
+        display_grid(sol)
