@@ -2,7 +2,7 @@
 # Test Circuit Board Solutions
 # David Kopec
 import unittest
-from ps2 import Chip, generate_grid, solution, display_grid, Grid
+from zbps2 import Chip, generate_grid, solution, display_grid, Grid
 
 
 class CircuitBoardTestCase(unittest.TestCase):
